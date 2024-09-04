@@ -1,0 +1,53 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Flutter Daa Somalia App
+# on:
+#   push:
+#     branches: [main]
+on: [workflow_dispatch]
+
+env:
+  bundleType: bundle
+jobs:
+  build:
+    name: Flutter Build
+    runs-on: android
+    steps:
+      - uses: actions/checkout@v3
+
+      - run: ls -lh
+      - name: FLutter install packages
+        run: flutter pub get
+
+      - name: Build Bundle
+        run: flutter build appbundle --build-number=${{github.run_number}}  --build-name=1.0.${{github.run_number}}
+
+  sign:
+    name: Application Signing and Uploading
+    runs-on: android
+    needs: [build]
+    # if: $bundleType == 'bundle'
+
+    steps:
+      - name: Deploy Stage
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: "https://hooks.slack.com/services/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"
+          method: "POST"
+          data: ' {"text":"${{github.run_number}} Passed."}'
+
+      - name: Extract APK
+        run: |
+          java -jar $HOME/bundletool-all-1.8.2.jar build-apks --bundle=build/app/outputs/bundle/release/app-release.aab --output=my_app.apks --mode=universal
+          unzip -p my_app.apks universal.apk > moeApp.apk
+          ls
+      - name: Copy Appbundle
+        run: cp build/app/outputs/bundle/release/app-release.aab app-release-${{github.run_number}}.aab
+
+      - uses: actions/upload-artifact@v2
+        name: Uploading ${{env.bundleType}}
+        with:
+          name: MOE app ${{github.run_number}}
+          path: |
+            app-release-${{github.run_number}}.aab
